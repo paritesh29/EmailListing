@@ -1,0 +1,217 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'emaillist.dart';
+
+class First extends StatefulWidget {
+  final String email;
+  final String imagePath;
+
+  const First({super.key, required this.email, required this.imagePath});
+
+  @override
+  State<First> createState() => _FirstState();
+}
+
+class _FirstState extends State<First> {
+  File? image;
+  TextEditingController emailController = TextEditingController();
+  TextEditingController passwordController = TextEditingController();
+  final key = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    loadSavedData();
+  }
+
+  Future<void> loadSavedData() async {
+    if (widget.email.isNotEmpty && widget.imagePath.isNotEmpty) {
+      setState(() {
+        emailController.text = widget.email;
+        image = File(widget.imagePath);
+      });
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final emails = prefs.getStringList('emails') ?? [];
+      final imagePaths = prefs.getStringList('imagePaths') ?? [];
+      if (emails.isNotEmpty && imagePaths.isNotEmpty) {
+        setState(() {
+          emailController.text = emails.last;
+          image = File(imagePaths.last);
+        });
+      }
+    }
+  }
+
+  Future<void> saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> emails = prefs.getStringList('emails') ?? [];
+    List<String> imagePaths = prefs.getStringList('imagePaths') ?? [];
+
+    int index = emails.indexOf(emailController.text);
+    if (index != -1) {
+      // Update existing email and image path
+      if (image != null) {
+        if (index < imagePaths.length) {
+          imagePaths[index] = image!.path;
+        } else {
+          // Handle case where imagePaths length is less than expected
+          imagePaths.add(image!.path);
+        }
+      }
+    } else {
+      // Add new email and image path
+      emails.add(emailController.text);
+      if (image != null) {
+        imagePaths.add(image!.path);
+      } else {
+        imagePaths.add(""); // Ensure lists remain synchronized
+      }
+    }
+
+    await prefs.setStringList('emails', emails);
+    await prefs.setStringList('imagePaths', imagePaths);
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height;
+    return Scaffold(
+      appBar: AppBar(),
+      body: SingleChildScrollView(
+        child: Container(
+          height: height,
+          color: Colors.blueGrey.shade100,
+          child: Form(
+            key: key,
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                Stack(
+                  children: [
+                    Container(
+                      height: 200,
+                      width: 200,
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(90),
+                      ),
+                      child: image != null
+                          ? ClipRRect(
+                        borderRadius: BorderRadius.circular(90),
+                        child: Image.file(
+                          image!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                          : const Center(
+                        child: Text(
+                          "No Image",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 140, top: 150),
+                      child: GestureDetector(
+                        onTap: () {
+                          pickImage();
+                          print("Photo");
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: const Icon(
+                            Icons.add_a_photo,
+                            size: 40,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextFormField(
+                    controller: emailController,
+                    validator: (value) {
+                      if (value == null ||
+                          value.isEmpty ||
+                          !RegExp(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+                              .hasMatch(value)) {
+                        return "Enter Valid Email";
+                      }
+                      return null;
+                    },
+                    decoration: const InputDecoration(labelText: "Email"),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextFormField(
+                    controller: passwordController,
+                    obscureText: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return "Enter Password";
+                      }
+                      return null;
+                    },
+                    decoration: const InputDecoration(labelText: "Password"),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () async {
+                    if (key.currentState!.validate()) {
+                      await saveData();
+                      Get.to(() => const Emaillist());
+                    }
+                    print(emailController.text);
+                    print(passwordController.text);
+                    print("Login");
+                  },
+                  child: Container(
+                    height: 50,
+                    width: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.deepPurple,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "Login",
+                        style: TextStyle(color: Colors.white, fontSize: 24),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future pickImage() async {
+    try {
+      final pickedImage = await ImagePicker().pickImage(source: ImageSource.camera);
+      if (pickedImage == null) return;
+      final tempImage = File(pickedImage.path);
+      setState(() {
+        image = tempImage;
+      });
+    } catch (e) {
+      print(e);
+    }
+  }
+}
