@@ -1,0 +1,102 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'first.dart';
+
+class Emaillist extends StatefulWidget {
+  const Emaillist({super.key});
+
+  @override
+  State<Emaillist> createState() => _EmaillistState();
+}
+
+class _EmaillistState extends State<Emaillist> {
+  List<File> images = [];
+  List<String> emails = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final imagePaths = prefs.getStringList('imagePaths') ?? [];
+    final userEmails = prefs.getStringList('emails') ?? [];
+
+    final minLength = [imagePaths.length, userEmails.length].reduce((a, b) => a < b ? a : b);
+
+    setState(() {
+      images = imagePaths.sublist(0, minLength).map((path) => File(path)).toList();
+      emails = userEmails.sublist(0, minLength);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(),
+      body: emails.isEmpty
+          ? const Center(child: Text("No data available"))
+          : ListView.builder(
+        itemCount: emails.length,
+        itemBuilder: (context, index) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  height: 100,
+                  width: 100,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(50),
+                    color: Colors.blueGrey,
+                  ),
+                  child: images.isNotEmpty && index < images.length && images[index] != null
+                      ? ClipRRect(
+                    borderRadius: BorderRadius.circular(50),
+                    child: Image.file(
+                      images[index],
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                      : const Center(
+                    child: Text(
+                      "No Image",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 50),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Email: ${emails[index]}"),
+                      const SizedBox(height: 20),
+                      GestureDetector(
+                        onTap: () async {
+                          await Get.to(() => First(email: emails[index], imagePath: images[index].path));
+                          loadData(); // Reload data after editing
+                        },
+                        child: Container(
+                          color: Colors.greenAccent.shade100,
+                          height: 20,
+                          width: 100,
+                          child: const Center(child: Text("Edit")),
+                        ),
+                      ),
+                      const SizedBox(height: 50),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
